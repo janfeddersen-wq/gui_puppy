@@ -46,6 +46,16 @@ code_puppy_datas, code_puppy_binaries, code_puppy_hiddenimports = collect_all('c
 datas += code_puppy_datas
 hiddenimports += code_puppy_hiddenimports
 
+# Collect genai_prices (needed for token pricing)
+genai_prices_datas, genai_prices_binaries, genai_prices_hiddenimports = collect_all('genai_prices')
+datas += genai_prices_datas
+hiddenimports += genai_prices_hiddenimports
+
+# Collect pydantic_ai
+pydantic_ai_datas, pydantic_ai_binaries, pydantic_ai_hiddenimports = collect_all('pydantic_ai')
+datas += pydantic_ai_datas
+hiddenimports += pydantic_ai_hiddenimports
+
 a = Analysis(
     ['gui_sidecar.py'],
     pathex=[],
