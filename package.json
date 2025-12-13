@@ -1,6 +1,6 @@
 {
   "name": "gui_puppy",
-  "version": "0.0.6",
+  "version": "0.1.0",
   "description": "Electron GUI for code_puppy AI agent",
   "main": "src/main/index.js",
   "scripts": {

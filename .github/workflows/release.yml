@@ -61,7 +61,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-build
-          path: dist/release/*.AppImage
+          path: dist/release/GUI-Puppy-*-linux.AppImage
           retention-days: 5
 
   build-windows:
@@ -111,7 +111,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: dist/release/*.exe
+          path: dist/release/GUI-Puppy-*-win.exe
           retention-days: 5
 
   build-macos:
@@ -176,7 +176,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-build
-          path: dist/release/*.dmg
+          path: dist/release/GUI-Puppy-*-mac-*.dmg
           retention-days: 5
 
   create-release:
