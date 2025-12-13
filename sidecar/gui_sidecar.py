@@ -11,6 +11,16 @@ import os
 from typing import Optional, Dict, Any
 from queue import Empty
 
+# Disable logfire before any pydantic imports to avoid PyInstaller issues
+# logfire tries to inspect source code which doesn't exist in frozen executables
+os.environ['LOGFIRE_IGNORE_NO_CONFIG'] = '1'
+os.environ['PYDANTIC_DISABLE_PLUGINS'] = '1'
+sys.modules['logfire'] = type(sys)('logfire')
+sys.modules['logfire'].configure = lambda *args, **kwargs: None
+sys.modules['logfire'].instrument_pydantic = lambda *args, **kwargs: None
+sys.modules['logfire.integrations'] = type(sys)('logfire.integrations')
+sys.modules['logfire.integrations.pydantic'] = type(sys)('logfire.integrations.pydantic')
+
 import socketio
 from aiohttp import web
 
