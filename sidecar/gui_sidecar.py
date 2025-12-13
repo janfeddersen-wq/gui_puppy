@@ -24,7 +24,7 @@ class _MockLogfire:
     def __call__(self, *args, **kwargs):
         return self
     def __getattr__(self, name):
-        return self
+        return _MockLogfire()
     def configure(self, *args, **kwargs):
         pass
     def instrument_pydantic(self, *args, **kwargs):
@@ -36,12 +36,24 @@ class _MockLogfire:
     def __exit__(self, *args):
         pass
 
+# Mock module with all possible exports
 _mock_logfire_module = type(sys)('logfire')
 _mock_logfire_module.Logfire = _MockLogfire
+_mock_logfire_module.LogfireSpan = _MockLogfire
 _mock_logfire_module.configure = lambda *args, **kwargs: None
 _mock_logfire_module.instrument_pydantic = lambda *args, **kwargs: None
 _mock_logfire_module.span = lambda *args, **kwargs: _MockLogfire()
 _mock_logfire_module.DEFAULT_LOGFIRE_INSTANCE = _MockLogfire()
+_mock_logfire_module.suppress_instrumentation = lambda: _MockLogfire()
+_mock_logfire_module.no_auto_trace = lambda f: f
+_mock_logfire_module.instrument = lambda *args, **kwargs: lambda f: f
+_mock_logfire_module.trace = lambda *args, **kwargs: lambda f: f
+_mock_logfire_module.log = lambda *args, **kwargs: None
+_mock_logfire_module.info = lambda *args, **kwargs: None
+_mock_logfire_module.debug = lambda *args, **kwargs: None
+_mock_logfire_module.warning = lambda *args, **kwargs: None
+_mock_logfire_module.error = lambda *args, **kwargs: None
+_mock_logfire_module.exception = lambda *args, **kwargs: None
 
 sys.modules['logfire'] = _mock_logfire_module
 sys.modules['logfire.integrations'] = type(sys)('logfire.integrations')
