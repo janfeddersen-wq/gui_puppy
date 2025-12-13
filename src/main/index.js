@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const net = require('net');
+const fs = require('fs');
 
 let mainWindow = null;
 let sidecarProcess = null;
@@ -25,24 +26,50 @@ async function startSidecar() {
   sidecarPort = await getAvailablePort();
   console.log(`Starting code_puppy sidecar on port ${sidecarPort}`);
 
-  // Determine paths
-  const sidecarDir = app.isPackaged
-    ? path.join(process.resourcesPath, 'sidecar')
-    : path.join(__dirname, '..', '..', 'sidecar');
-
-  const sidecarPath = path.join(sidecarDir, 'gui_sidecar.py');
-
-  // Handle Windows vs Unix Python paths
   const isWindows = process.platform === 'win32';
-  const pythonPath = isWindows
-    ? path.join(sidecarDir, '.venv', 'Scripts', 'python.exe')
-    : path.join(sidecarDir, '.venv', 'bin', 'python');
 
-  console.log(`Using Python: ${pythonPath}`);
-  console.log(`Sidecar script: ${sidecarPath}`);
+  let sidecarExecutable;
+  let sidecarArgs;
+  let sidecarDir;
 
-  // Start the Python sidecar using the venv python
-  sidecarProcess = spawn(pythonPath, [sidecarPath, '--port', sidecarPort.toString()], {
+  if (app.isPackaged) {
+    // In production, use the PyInstaller-built executable
+    sidecarDir = path.join(process.resourcesPath, 'sidecar');
+
+    if (isWindows) {
+      sidecarExecutable = path.join(sidecarDir, 'gui_sidecar.exe');
+    } else {
+      sidecarExecutable = path.join(sidecarDir, 'gui_sidecar');
+    }
+    sidecarArgs = ['--port', sidecarPort.toString()];
+
+    console.log(`Using bundled sidecar: ${sidecarExecutable}`);
+  } else {
+    // In development, use the Python script with venv
+    sidecarDir = path.join(__dirname, '..', '..', 'sidecar');
+    const sidecarScript = path.join(sidecarDir, 'gui_sidecar.py');
+
+    const pythonPath = isWindows
+      ? path.join(sidecarDir, '.venv', 'Scripts', 'python.exe')
+      : path.join(sidecarDir, '.venv', 'bin', 'python');
+
+    sidecarExecutable = pythonPath;
+    sidecarArgs = [sidecarScript, '--port', sidecarPort.toString()];
+
+    console.log(`Using Python: ${pythonPath}`);
+    console.log(`Sidecar script: ${sidecarScript}`);
+  }
+
+  // Verify executable exists
+  if (!fs.existsSync(sidecarExecutable)) {
+    const error = `Sidecar executable not found: ${sidecarExecutable}`;
+    console.error(error);
+    mainWindow?.webContents.send('sidecar-error', { error });
+    return sidecarPort;
+  }
+
+  // Start the sidecar process
+  sidecarProcess = spawn(sidecarExecutable, sidecarArgs, {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: { ...process.env },
     cwd: sidecarDir

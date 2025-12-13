@@ -35,14 +35,19 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
-      - name: Prepare sidecar
+      - name: Build sidecar with PyInstaller
         run: |
           cd sidecar
           python -m venv .venv
           .venv/bin/pip install --upgrade pip
           .venv/bin/pip install -r requirements.txt
-          find .venv -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-          find .venv -type f -name "*.pyc" -delete 2>/dev/null || true
+          .venv/bin/pip install pyinstaller
+          # Build standalone executable
+          .venv/bin/pyinstaller --onefile --name gui_sidecar gui_sidecar.py
+          # Move executable to sidecar root for electron-builder
+          mv dist/gui_sidecar ./
+          # Clean up build artifacts
+          rm -rf build dist *.spec .venv
 
       - name: Build Electron app
         run: npm run build
@@ -79,15 +84,20 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
-      - name: Prepare sidecar
+      - name: Build sidecar with PyInstaller
         shell: pwsh
         run: |
           cd sidecar
           python -m venv .venv
           .venv\Scripts\pip install --upgrade pip
           .venv\Scripts\pip install -r requirements.txt
-          Get-ChildItem -Path .venv -Recurse -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-          Get-ChildItem -Path .venv -Recurse -File -Filter "*.pyc" | Remove-Item -Force -ErrorAction SilentlyContinue
+          .venv\Scripts\pip install pyinstaller
+          # Build standalone executable
+          .venv\Scripts\pyinstaller --onefile --name gui_sidecar gui_sidecar.py
+          # Move executable to sidecar root for electron-builder
+          Move-Item dist\gui_sidecar.exe .\
+          # Clean up build artifacts
+          Remove-Item -Recurse -Force build, dist, *.spec, .venv -ErrorAction SilentlyContinue
 
       - name: Build Electron app
         run: npm run build
@@ -124,14 +134,19 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
-      - name: Prepare sidecar
+      - name: Build sidecar with PyInstaller
         run: |
           cd sidecar
           python -m venv .venv
           .venv/bin/pip install --upgrade pip
           .venv/bin/pip install -r requirements.txt
-          find .venv -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-          find .venv -type f -name "*.pyc" -delete 2>/dev/null || true
+          .venv/bin/pip install pyinstaller
+          # Build standalone executable
+          .venv/bin/pyinstaller --onefile --name gui_sidecar gui_sidecar.py
+          # Move executable to sidecar root for electron-builder
+          mv dist/gui_sidecar ./
+          # Clean up build artifacts
+          rm -rf build dist *.spec .venv
 
       - name: Generate macOS icons
         run: |

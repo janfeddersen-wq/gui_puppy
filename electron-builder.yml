@@ -13,11 +13,8 @@ extraResources:
   - from: sidecar
     to: sidecar
     filter:
-      - "**/*"
-      - "!**/__pycache__/**"
-      - "!**/*.pyc"
-      - "!**/*.pyo"
-      - "!**/.git/**"
+      - "gui_sidecar"
+      - "gui_sidecar.exe"
 
 linux:
   target:
