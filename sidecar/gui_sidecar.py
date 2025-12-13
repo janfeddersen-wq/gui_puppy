@@ -15,9 +15,35 @@ from queue import Empty
 # logfire tries to inspect source code which doesn't exist in frozen executables
 os.environ['LOGFIRE_IGNORE_NO_CONFIG'] = '1'
 os.environ['PYDANTIC_DISABLE_PLUGINS'] = '1'
-sys.modules['logfire'] = type(sys)('logfire')
-sys.modules['logfire'].configure = lambda *args, **kwargs: None
-sys.modules['logfire'].instrument_pydantic = lambda *args, **kwargs: None
+
+# Create a comprehensive mock for logfire
+class _MockLogfire:
+    """Mock Logfire class that does nothing."""
+    def __init__(self, *args, **kwargs):
+        pass
+    def __call__(self, *args, **kwargs):
+        return self
+    def __getattr__(self, name):
+        return self
+    def configure(self, *args, **kwargs):
+        pass
+    def instrument_pydantic(self, *args, **kwargs):
+        pass
+    def span(self, *args, **kwargs):
+        return self
+    def __enter__(self):
+        return self
+    def __exit__(self, *args):
+        pass
+
+_mock_logfire_module = type(sys)('logfire')
+_mock_logfire_module.Logfire = _MockLogfire
+_mock_logfire_module.configure = lambda *args, **kwargs: None
+_mock_logfire_module.instrument_pydantic = lambda *args, **kwargs: None
+_mock_logfire_module.span = lambda *args, **kwargs: _MockLogfire()
+_mock_logfire_module.DEFAULT_LOGFIRE_INSTANCE = _MockLogfire()
+
+sys.modules['logfire'] = _mock_logfire_module
 sys.modules['logfire.integrations'] = type(sys)('logfire.integrations')
 sys.modules['logfire.integrations.pydantic'] = type(sys)('logfire.integrations.pydantic')
 
