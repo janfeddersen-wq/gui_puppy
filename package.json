@@ -9,7 +9,9 @@
     "electron:dev": "wait-on http://localhost:5173 && electron . --dev",
     "build": "vite build",
     "start": "npm run build && electron .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dist": "npm run build && electron-builder --linux AppImage",
+    "dist:clean": "rm -rf dist/ && npm run dist"
   },
   "keywords": [
     "electron",
@@ -25,7 +27,6 @@
     "@mui/material": "^7.3.6",
     "@types/dagre": "^0.7.53",
     "dagre": "^0.8.5",
-    "electron": "^39.2.7",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-markdown": "^10.1.0",
@@ -39,6 +40,8 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.2",
     "concurrently": "^9.2.1",
+    "electron": "^39.2.7",
+    "electron-builder": "^25.1.8",
     "typescript": "^5.9.3",
     "vite": "^7.2.7",
     "wait-on": "^9.0.3"

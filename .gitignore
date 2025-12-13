@@ -6,7 +6,11 @@ sidecar/.venv/
 dist/
 dist-electron/
 out/
-build/
+
+# Icon generation temp files
+icon.iconset/
+_icons/
+buildResources/
 
 # Python
 __pycache__/

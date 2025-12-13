@@ -1,0 +1,64 @@
+appId: com.guipuppy.app
+productName: GUI Puppy
+
+directories:
+  output: dist/release
+
+files:
+  - src/main/**/*
+  - dist/renderer/**/*
+  - package.json
+
+extraResources:
+  - from: sidecar
+    to: sidecar
+    filter:
+      - "**/*"
+      - "!**/__pycache__/**"
+      - "!**/*.pyc"
+      - "!**/*.pyo"
+      - "!**/.git/**"
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  category: Development
+  maintainer: GUI Puppy Team
+  icon: icon.png
+
+appImage:
+  artifactName: "${productName}-${version}-linux.AppImage"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: icon.ico
+  artifactName: "${productName}-${version}-win.${ext}"
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  icon: icon.icns
+  category: public.app-category.developer-tools
+  artifactName: "${productName}-${version}-mac-${arch}.${ext}"
+
+dmg:
+  artifactName: "${productName}-${version}-mac-${arch}.dmg"
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications

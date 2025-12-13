@@ -31,7 +31,12 @@ async function startSidecar() {
     : path.join(__dirname, '..', '..', 'sidecar');
 
   const sidecarPath = path.join(sidecarDir, 'gui_sidecar.py');
-  const pythonPath = path.join(sidecarDir, '.venv', 'bin', 'python');
+
+  // Handle Windows vs Unix Python paths
+  const isWindows = process.platform === 'win32';
+  const pythonPath = isWindows
+    ? path.join(sidecarDir, '.venv', 'Scripts', 'python.exe')
+    : path.join(sidecarDir, '.venv', 'bin', 'python');
 
   console.log(`Using Python: ${pythonPath}`);
   console.log(`Sidecar script: ${sidecarPath}`);
@@ -96,8 +101,8 @@ async function createWindow() {
     await mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    // In production, load the built files
-    await mainWindow.loadFile(path.join(__dirname, '..', '..', 'dist', 'renderer', 'index.html'));
+    // In production, load the built files from app resources
+    await mainWindow.loadFile(path.join(app.getAppPath(), 'dist', 'renderer', 'index.html'));
   }
 
   mainWindow.on('closed', () => {
