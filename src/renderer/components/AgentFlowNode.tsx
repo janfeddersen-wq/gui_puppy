@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import {
   SmartToy as AgentIcon,
   CheckCircle as CheckIcon,
@@ -9,7 +9,6 @@ import {
   PauseCircle as WaitingIcon,
 } from '@mui/icons-material';
 import type { AgentNodeData } from '../types';
-import { zinc } from '../theme';
 
 interface ExtendedAgentNodeData extends AgentNodeData {
   isCurrentAgent?: boolean;
@@ -46,6 +45,8 @@ const statusConfig = {
 };
 
 function AgentFlowNode({ data, selected }: NodeProps<ExtendedAgentNodeData>) {
+  const theme = useTheme();
+
   // Determine visual status: active (green), waiting (blue), completed, or error
   const getVisualStatus = () => {
     if (data.status === 'completed') return 'completed';
@@ -96,7 +97,7 @@ function AgentFlowNode({ data, selected }: NodeProps<ExtendedAgentNodeData>) {
         type="target"
         position={Position.Top}
         style={{
-          background: zinc[600],
+          background: theme.palette.divider,
           border: 'none',
           width: 8,
           height: 8,
@@ -109,7 +110,7 @@ function AgentFlowNode({ data, selected }: NodeProps<ExtendedAgentNodeData>) {
           sx={{
             fontSize: '0.75rem',
             fontWeight: 600,
-            color: zinc[100],
+            color: theme.palette.text.primary,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -125,7 +126,7 @@ function AgentFlowNode({ data, selected }: NodeProps<ExtendedAgentNodeData>) {
         <Typography
           sx={{
             fontSize: '0.65rem',
-            color: zinc[400],
+            color: theme.palette.text.secondary,
             mt: 0.5,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -140,7 +141,7 @@ function AgentFlowNode({ data, selected }: NodeProps<ExtendedAgentNodeData>) {
         type="source"
         position={Position.Bottom}
         style={{
-          background: zinc[600],
+          background: theme.palette.divider,
           border: 'none',
           width: 8,
           height: 8,
