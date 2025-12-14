@@ -11,6 +11,7 @@ import {
   MenuItem,
   ListItemText,
   ListItemIcon,
+  useTheme,
 } from '@mui/material';
 import {
   Circle as CircleIcon,
@@ -19,9 +20,11 @@ import {
   KeyboardArrowDown as ArrowDownIcon,
   SmartToy as AgentIcon,
   Folder as FolderIcon,
+  DarkMode as DarkModeIcon,
+  LightMode as LightModeIcon,
 } from '@mui/icons-material';
 import type { ConnectionStatus, AgentInfo } from '../types';
-import { zinc } from '../theme';
+import { useThemeMode } from '../context/ThemeContext';
 
 interface HeaderProps {
   status: ConnectionStatus;
@@ -36,13 +39,6 @@ interface HeaderProps {
   onFolderClick?: () => void;
 }
 
-const statusConfig: Record<ConnectionStatus, { label: string; color: string }> = {
-  connecting: { label: 'Connecting...', color: zinc[500] },
-  connected: { label: 'Connected', color: '#22c55e' },
-  disconnected: { label: 'Disconnected', color: '#ef4444' },
-  error: { label: 'Error', color: '#ef4444' },
-};
-
 export function Header({
   status,
   agentName,
@@ -55,6 +51,17 @@ export function Header({
   flowPanelOpen,
   onFolderClick,
 }: HeaderProps) {
+  const theme = useTheme();
+  const { mode, toggleTheme } = useThemeMode();
+  const isDark = mode === 'dark';
+
+  const statusConfig: Record<ConnectionStatus, { label: string; color: string }> = {
+    connecting: { label: 'Connecting...', color: theme.palette.text.secondary },
+    connected: { label: 'Connected', color: theme.palette.success.main },
+    disconnected: { label: 'Disconnected', color: theme.palette.error.main },
+    error: { label: 'Error', color: theme.palette.error.main },
+  };
+
   const statusCfg = statusConfig[status];
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const menuOpen = Boolean(anchorEl);
@@ -81,12 +88,12 @@ export function Header({
       position="static"
       elevation={0}
       sx={{
-        backgroundColor: zinc[900],
-        borderBottom: `1px solid ${zinc[800]}`,
+        backgroundColor: theme.palette.background.paper,
+        borderBottom: `1px solid ${theme.palette.divider}`,
       }}
     >
       <Toolbar variant="dense" sx={{ minHeight: 48, gap: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.1rem' }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.1rem', color: theme.palette.text.primary }}>
           GUI Puppy
         </Typography>
 
@@ -106,12 +113,12 @@ export function Header({
               size="small"
               onClick={handleAgentClick}
               sx={{
-                backgroundColor: zinc[800],
-                color: zinc[300],
+                backgroundColor: theme.palette.action.selected,
+                color: theme.palette.text.secondary,
                 fontSize: '0.75rem',
                 cursor: availableAgents && availableAgents.length > 0 ? 'pointer' : 'default',
                 '&:hover': availableAgents && availableAgents.length > 0 ? {
-                  backgroundColor: zinc[700],
+                  backgroundColor: theme.palette.action.hover,
                 } : {},
                 '& .MuiChip-icon': {
                   color: '#60a5fa',
@@ -124,8 +131,8 @@ export function Header({
               onClose={handleMenuClose}
               PaperProps={{
                 sx: {
-                  backgroundColor: zinc[800],
-                  border: `1px solid ${zinc[700]}`,
+                  backgroundColor: theme.palette.background.paper,
+                  border: `1px solid ${theme.palette.divider}`,
                   maxHeight: 400,
                   minWidth: 250,
                 },
@@ -137,25 +144,25 @@ export function Header({
                   onClick={() => handleAgentSelect(agent)}
                   selected={agent.name === agentName}
                   sx={{
-                    '&:hover': { backgroundColor: zinc[700] },
+                    '&:hover': { backgroundColor: theme.palette.action.hover },
                     '&.Mui-selected': {
-                      backgroundColor: zinc[700],
-                      '&:hover': { backgroundColor: zinc[600] },
+                      backgroundColor: theme.palette.action.selected,
+                      '&:hover': { backgroundColor: theme.palette.action.hover },
                     },
                   }}
                 >
                   <ListItemIcon>
-                    <AgentIcon sx={{ color: agent.name === agentName ? '#60a5fa' : zinc[500], fontSize: 20 }} />
+                    <AgentIcon sx={{ color: agent.name === agentName ? '#60a5fa' : theme.palette.text.secondary, fontSize: 20 }} />
                   </ListItemIcon>
                   <ListItemText
                     primary={
-                      <Typography sx={{ color: zinc[100], fontSize: '0.85rem' }}>
+                      <Typography sx={{ color: theme.palette.text.primary, fontSize: '0.85rem' }}>
                         {agent.name}
                       </Typography>
                     }
                     secondary={
                       agent.description && (
-                        <Typography sx={{ color: zinc[500], fontSize: '0.75rem' }}>
+                        <Typography sx={{ color: theme.palette.text.secondary, fontSize: '0.75rem' }}>
                           {agent.description.length > 50
                             ? `${agent.description.substring(0, 50)}...`
                             : agent.description}
@@ -175,8 +182,8 @@ export function Header({
             label={modelName}
             size="small"
             sx={{
-              backgroundColor: zinc[800],
-              color: zinc[400],
+              backgroundColor: theme.palette.action.selected,
+              color: theme.palette.text.secondary,
               fontSize: '0.75rem',
             }}
           />
@@ -191,13 +198,13 @@ export function Header({
               size="small"
               onClick={onFolderClick}
               sx={{
-                backgroundColor: zinc[800],
-                color: zinc[300],
+                backgroundColor: theme.palette.action.selected,
+                color: theme.palette.text.secondary,
                 fontSize: '0.75rem',
                 maxWidth: 200,
                 cursor: 'pointer',
                 '&:hover': {
-                  backgroundColor: zinc[700],
+                  backgroundColor: theme.palette.action.hover,
                 },
                 '& .MuiChip-icon': {
                   color: '#fbbf24',
@@ -214,6 +221,23 @@ export function Header({
 
         <Box sx={{ flexGrow: 1 }} />
 
+        {/* Theme Toggle */}
+        <Tooltip title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}>
+          <IconButton
+            onClick={toggleTheme}
+            size="small"
+            sx={{
+              color: theme.palette.text.secondary,
+              '&:hover': {
+                backgroundColor: theme.palette.action.hover,
+                color: theme.palette.text.primary,
+              },
+            }}
+          >
+            {isDark ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+          </IconButton>
+        </Tooltip>
+
         {/* Flow Panel Toggle */}
         {onToggleFlowPanel && (
           <Tooltip title={flowPanelOpen ? 'Hide agent flow' : 'Show agent flow'}>
@@ -221,11 +245,11 @@ export function Header({
               onClick={onToggleFlowPanel}
               size="small"
               sx={{
-                color: flowPanelOpen ? '#60a5fa' : zinc[400],
+                color: flowPanelOpen ? '#60a5fa' : theme.palette.text.secondary,
                 backgroundColor: flowPanelOpen ? `${'#60a5fa'}15` : 'transparent',
                 '&:hover': {
-                  backgroundColor: flowPanelOpen ? `${'#60a5fa'}25` : zinc[800],
-                  color: flowPanelOpen ? '#60a5fa' : zinc[100],
+                  backgroundColor: flowPanelOpen ? `${'#60a5fa'}25` : theme.palette.action.hover,
+                  color: flowPanelOpen ? '#60a5fa' : theme.palette.text.primary,
                 },
               }}
             >
@@ -240,10 +264,10 @@ export function Header({
             onClick={onSettingsClick}
             size="small"
             sx={{
-              color: zinc[400],
+              color: theme.palette.text.secondary,
               '&:hover': {
-                backgroundColor: zinc[800],
-                color: zinc[100],
+                backgroundColor: theme.palette.action.hover,
+                color: theme.palette.text.primary,
               },
             }}
           >
@@ -257,8 +281,8 @@ export function Header({
           label={statusCfg.label}
           size="small"
           sx={{
-            backgroundColor: zinc[800],
-            color: zinc[300],
+            backgroundColor: theme.palette.action.selected,
+            color: theme.palette.text.secondary,
             '& .MuiChip-icon': {
               color: statusCfg.color,
             },

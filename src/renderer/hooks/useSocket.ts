@@ -144,9 +144,9 @@ export function useSocket(options: UseSocketOptions) {
     socketRef.current = socket;
   }, []); // No dependencies - connect is stable
 
-  const sendPrompt = useCallback((text: string) => {
+  const sendPrompt = useCallback((text: string, images?: { name: string; dataUrl: string; mimeType?: string }[]) => {
     if (socketRef.current?.connected) {
-      socketRef.current.emit('prompt', { text });
+      socketRef.current.emit('prompt', { text, images });
     }
   }, []);
 

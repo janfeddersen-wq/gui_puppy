@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, Menu } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const net = require('net');
@@ -162,6 +162,9 @@ ipcMain.handle('select-folder', async () => {
 
 // App lifecycle
 app.whenReady().then(async () => {
+  // Remove the default menu bar
+  Menu.setApplicationMenu(null);
+
   await startSidecar();
   await createWindow();
 

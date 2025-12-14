@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { Box } from '@mui/material';
-import { MessageBubble } from './MessageBubble';
+import { Box, useTheme } from '@mui/material';
+import { MessageBubble } from './message';
 import type { Message } from '../types';
-import { zinc } from '../theme';
 
 interface MessageListProps {
   messages: Message[];
@@ -10,6 +9,7 @@ interface MessageListProps {
 
 export function MessageList({ messages }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const theme = useTheme();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -21,7 +21,7 @@ export function MessageList({ messages }: MessageListProps) {
         flex: 1,
         overflowY: 'auto',
         p: 2,
-        backgroundColor: zinc[950],
+        backgroundColor: theme.palette.background.default,
       }}
     >
       {messages.map((message) => (

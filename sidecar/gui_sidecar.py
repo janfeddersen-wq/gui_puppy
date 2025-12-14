@@ -70,6 +70,7 @@ try:
     import code_puppy
     from code_puppy import config
     from code_puppy.agents import load_agent, get_available_agents, get_agent_descriptions
+    from pydantic_ai import BinaryContent
     from code_puppy.messaging import (
         MessageBus,
         get_message_bus,
@@ -181,6 +182,9 @@ class GUISidecar:
         self._current_agent = None
         self._current_agent_name: Optional[str] = None
 
+        # Track when credentials change to force agent reload
+        self._credentials_version = 0
+
         # OAuth state
         self._oauth_context = None
         self._oauth_server = None
@@ -218,16 +222,18 @@ class GUISidecar:
         async def prompt(sid, data):
             """Handle prompt from GUI."""
             text = data.get('text', '').strip()
-            if not text:
+            images = data.get('images', [])
+
+            if not text and not images:
                 await self.sio.emit('error', {'message': 'Empty prompt'}, room=sid)
                 return
 
-            print(f"[Sidecar] Prompt: {text[:80]}...")
+            print(f"[Sidecar] Prompt: {text[:80]}... ({len(images)} images)")
 
             if self._current_task and not self._current_task.done():
                 self._current_task.cancel()
 
-            self._current_task = asyncio.create_task(self._run_prompt(sid, text))
+            self._current_task = asyncio.create_task(self._run_prompt(sid, text, images))
 
         @self.sio.event
         async def cancel(sid, data=None):
@@ -783,6 +789,13 @@ class GUISidecar:
                     'content': f'Added {len(models)} Claude Code models'
                 }, room=sid)
 
+            # Increment credentials version to force agent reload on next prompt
+            self._credentials_version += 1
+            # Clear cached agent so it picks up new credentials
+            if self._current_agent is not None:
+                self._current_agent._code_generation_agent = None
+                print(f"[Sidecar] OAuth complete - cleared cached pydantic agent")
+
             await self.sio.emit('oauth_result', {
                 'success': True,
                 'message': 'Claude Code authentication successful!',
@@ -809,18 +822,48 @@ class GUISidecar:
                 'error': str(e)
             }, room=sid)
 
-    async def _run_prompt(self, sid: str, prompt_text: str):
+    async def _run_prompt(self, sid: str, prompt_text: str, images: list = None):
         """Run a prompt through code_puppy agent."""
+        import base64
+        import traceback
+
+        print(f"[Sidecar] _run_prompt called with text={prompt_text[:50]}... images={len(images) if images else 0}")
+        sys.stdout.flush()
+
+        print(f"[Sidecar] Getting message bus...")
+        sys.stdout.flush()
         bus = get_message_bus()
+        print(f"[Sidecar] Got message bus")
+        sys.stdout.flush()
 
         try:
-            # Only reload agent if agent type changed, otherwise reuse for conversation persistence
-            if self._current_agent is None or self._current_agent_name != self._default_agent:
+            # Check if we need to reload the agent
+            need_new_agent = (
+                self._current_agent is None or
+                self._current_agent_name != self._default_agent
+            )
+
+            # Also check if the model changed - need to reset the pydantic agent
+            model_changed = False
+            if self._current_agent is not None:
+                current_model = self._current_agent.get_model_name()
+                if current_model != self._default_model:
+                    model_changed = True
+                    print(f"[Sidecar] Model changed from {current_model} to {self._default_model}")
+                    sys.stdout.flush()
+
+            if need_new_agent:
+                print(f"[Sidecar] Need to load new agent: {self._default_agent}")
+                sys.stdout.flush()
                 # Reset message bus only when loading a new agent
                 reset_message_bus()
                 bus = get_message_bus()
+                print(f"[Sidecar] Message bus reset, loading agent...")
+                sys.stdout.flush()
 
                 agent = load_agent(self._default_agent)
+                print(f"[Sidecar] load_agent returned: {agent}")
+                sys.stdout.flush()
                 if not agent:
                     await self.sio.emit('error', {
                         'message': f'Failed to load agent: {self._default_agent}'
@@ -835,37 +878,176 @@ class GUISidecar:
                 agent = self._current_agent
                 print(f"[Sidecar] Reusing existing agent: {self._default_agent}")
 
+                # If model changed, force reload the pydantic agent to pick up new credentials
+                if model_changed:
+                    print(f"[Sidecar] Forcing pydantic agent reload due to model change")
+                    sys.stdout.flush()
+                    # Clear the cached pydantic agent so it gets recreated with new model
+                    agent._code_generation_agent = None
+                    # Update the agent's model name
+                    agent._model_name = self._default_model
+
             # Mark renderer active so messages flow
             bus.mark_renderer_active()
 
             # Start message consumer
             consumer_task = asyncio.create_task(self._consume_messages(sid, bus))
 
+            # Convert images to BinaryContent attachments
+            attachments = None
+            if images:
+                attachments = []
+                for img in images:
+                    try:
+                        data_url = img.get('dataUrl', '')
+                        mime_type = img.get('mimeType', 'image/png')
+
+                        # Parse data URL: data:image/png;base64,xxxxx
+                        if data_url.startswith('data:'):
+                            # Extract base64 data after the comma
+                            parts = data_url.split(',', 1)
+                            if len(parts) == 2:
+                                base64_data = parts[1]
+                                image_bytes = base64.b64decode(base64_data)
+                                attachments.append(BinaryContent(data=image_bytes, media_type=mime_type))
+                                print(f"[Sidecar] Added image attachment: {img.get('name', 'unknown')} ({len(image_bytes)} bytes)")
+                    except Exception as e:
+                        print(f"[Sidecar] Error processing image: {e}")
+
             try:
-                # Run the agent with MCP support
-                result = await agent.run_with_mcp(prompt_text)
+                # Run the agent with MCP support and attachments
+                print(f"[Sidecar] Running agent.run_with_mcp with {len(attachments) if attachments else 0} attachments")
+                print(f"[Sidecar] Current model: {self._default_model}")
+                print(f"[Sidecar] Agent type: {type(agent)}, agent name: {getattr(agent, 'name', 'unknown')}")
+
+                # Log attachment details
+                if attachments:
+                    for i, att in enumerate(attachments):
+                        print(f"[Sidecar] Attachment {i}: type={type(att)}, media_type={getattr(att, 'media_type', 'unknown')}")
+
+                sys.stdout.flush()
+
+                try:
+                    print(f"[Sidecar] About to call agent.run_with_mcp")
+                    print(f"[Sidecar] Prompt payload: {prompt_text[:100] if prompt_text else 'empty'}...")
+                    if attachments:
+                        print(f"[Sidecar] Attachments: {len(attachments)} items")
+                        for i, att in enumerate(attachments):
+                            print(f"[Sidecar]   Attachment {i}: {type(att).__name__}, data_len={len(att.data) if hasattr(att, 'data') else 'N/A'}, media_type={getattr(att, 'media_type', 'unknown')}")
+
+                    # Check if the agent has been properly initialized
+                    pydantic_agent = getattr(agent, '_code_generation_agent', None) or getattr(agent, 'pydantic_agent', None)
+                    print(f"[Sidecar] Pydantic agent: {pydantic_agent}")
+                    print(f"[Sidecar] Agent model name: {agent.get_model_name()}")
+
+                    # Debug: try to load the model directly to see what happens
+                    from code_puppy.model_factory import ModelFactory
+                    model_name = agent.get_model_name()
+                    print(f"[Sidecar] Trying to load model directly: {model_name}")
+                    try:
+                        models_config = ModelFactory.load_config()
+                        print(f"[Sidecar] Loaded {len(models_config)} models from config")
+                        if model_name in models_config:
+                            print(f"[Sidecar] Model '{model_name}' found in config")
+                            model_cfg = models_config[model_name]
+                            print(f"[Sidecar] Model type: {model_cfg.get('type')}")
+                            print(f"[Sidecar] Model has api_key: {bool(model_cfg.get('custom_endpoint', {}).get('api_key'))}")
+                        else:
+                            print(f"[Sidecar] Model '{model_name}' NOT found in config")
+                            print(f"[Sidecar] Available models: {list(models_config.keys())[:10]}...")
+                        model = ModelFactory.get_model(model_name, models_config)
+                        print(f"[Sidecar] ModelFactory.get_model returned: {model}")
+                    except Exception as mf_err:
+                        print(f"[Sidecar] ModelFactory error: {mf_err}")
+                        import traceback
+                        traceback.print_exc()
+
+                    sys.stdout.flush()
+
+                    result = await agent.run_with_mcp(prompt_text, attachments=attachments if attachments else None)
+
+                    print(f"[Sidecar] run_with_mcp returned successfully")
+                    print(f"[Sidecar] Result: {result}")
+
+                    # Check if pydantic agent was created after the call
+                    pydantic_agent_after = getattr(agent, '_code_generation_agent', None) or getattr(agent, 'pydantic_agent', None)
+                    print(f"[Sidecar] Pydantic agent after run: {pydantic_agent_after}")
+                    if pydantic_agent_after:
+                        print(f"[Sidecar] Pydantic agent model: {getattr(pydantic_agent_after, 'model', 'unknown')}")
+                    sys.stdout.flush()
+                except Exception as agent_error:
+                    print(f"[Sidecar] Agent run_with_mcp raised exception: {type(agent_error).__name__}: {agent_error}")
+                    traceback.print_exc()
+                    sys.stdout.flush()
+                    raise
+
+                print(f"[Sidecar] Agent completed, result type: {type(result)}")
+                if result is not None:
+                    print(f"[Sidecar] Result has output: {hasattr(result, 'output')}")
+                    if hasattr(result, 'output'):
+                        output_preview = str(result.output)[:200] if result.output else "None"
+                        print(f"[Sidecar] Result output preview: {output_preview}")
+                else:
+                    print(f"[Sidecar] Result is None - checking agent message history")
+                    # The agent stores its response in message_history
+                    history = agent.get_message_history()
+                    print(f"[Sidecar] Agent message history length: {len(history)}")
+                    if history:
+                        last_msg = history[-1]
+                        print(f"[Sidecar] Last message type: {type(last_msg)}")
+                        if hasattr(last_msg, 'parts'):
+                            print(f"[Sidecar] Last message parts: {len(last_msg.parts)}")
+                            for i, part in enumerate(last_msg.parts[:3]):  # Show first 3 parts
+                                part_content = getattr(part, 'content', None)
+                                if part_content:
+                                    preview = str(part_content)[:100] if isinstance(part_content, str) else str(type(part_content))
+                                    print(f"[Sidecar] Part {i}: {type(part).__name__} - {preview}")
+                sys.stdout.flush()
 
                 # Give consumer time to process remaining messages
                 await asyncio.sleep(0.2)
 
                 # Emit final response if available
+                response_output = None
                 if result:
                     # Result could be a string or have an output attribute
-                    output = str(result.output) if hasattr(result, 'output') else str(result)
-                    if output:
-                        await self.sio.emit('message', {
-                            'type': 'agent_response',
-                            'content': output
-                        }, room=sid)
+                    response_output = str(result.output) if hasattr(result, 'output') else str(result)
+                elif result is None:
+                    # Try to get the response from the agent's message history
+                    history = agent.get_message_history()
+                    if history:
+                        last_msg = history[-1]
+                        # Look for text content in the last message (model response)
+                        if hasattr(last_msg, 'parts'):
+                            for part in last_msg.parts:
+                                if hasattr(part, 'content') and isinstance(part.content, str):
+                                    response_output = part.content
+                                    print(f"[Sidecar] Found response in history: {response_output[:100]}...")
+                                    break
+
+                if response_output:
+                    print(f"[Sidecar] Emitting agent response")
+                    sys.stdout.flush()
+                    # Also emit to message bus for consistency (already imported at top)
+                    response_msg = AgentResponseMessage(content=response_output, is_markdown=True)
+                    bus.emit(response_msg)
+
+                    await self.sio.emit('message', {
+                        'type': 'agent_response',
+                        'content': response_output
+                    }, room=sid)
 
             except asyncio.CancelledError:
+                print("[Sidecar] Task was cancelled")
+                sys.stdout.flush()
                 await self.sio.emit('message', {
                     'type': 'status',
                     'content': 'Task cancelled'
                 }, room=sid)
             except Exception as e:
-                import traceback
+                print(f"[Sidecar] Exception in agent.run_with_mcp: {e}")
                 traceback.print_exc()
+                sys.stdout.flush()
                 await self.sio.emit('error', {
                     'message': str(e)
                 }, room=sid)
@@ -887,18 +1069,24 @@ class GUISidecar:
 
     async def _consume_messages(self, sid: str, bus: MessageBus):
         """Consume messages from the bus and forward to GUI."""
+        msg_count = 0
         while True:
             try:
                 try:
                     msg = bus.get_message_nowait()
                     # Skip None messages
                     if msg is not None:
+                        msg_count += 1
+                        print(f"[Sidecar] Message {msg_count}: {type(msg).__name__}")
+                        sys.stdout.flush()
                         await self._forward_message(sid, msg, bus)
                 except Empty:
                     pass
 
                 await asyncio.sleep(0.01)
             except asyncio.CancelledError:
+                print(f"[Sidecar] Consumer cancelled after {msg_count} messages")
+                sys.stdout.flush()
                 # Drain remaining messages
                 for _ in range(100):
                     try:

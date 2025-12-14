@@ -11,13 +11,12 @@ import ReactFlow, {
   BackgroundVariant,
   MarkerType,
 } from 'reactflow';
-import { Box, Typography, IconButton, Tooltip } from '@mui/material';
+import { Box, Typography, IconButton, Tooltip, useTheme } from '@mui/material';
 import { Close as CloseIcon, AccountTree as TreeIcon } from '@mui/icons-material';
 import 'reactflow/dist/style.css';
 
 import AgentFlowNode from './AgentFlowNode';
 import type { AgentNodeData } from '../types';
-import { zinc } from '../theme';
 
 interface AgentFlowPanelProps {
   agentNodes: AgentNodeData[];
@@ -27,7 +26,6 @@ interface AgentFlowPanelProps {
 
 const nodeTypes = { agentNode: AgentFlowNode };
 
-const nodeWidth = 150;
 const nodeHeight = 60;
 const nodeSpacing = 20;
 
@@ -61,6 +59,7 @@ function FlowCanvas({
   currentAgentId: string | null;
 }) {
   const { fitView } = useReactFlow();
+  const theme = useTheme();
 
   // Convert AgentNodeData to ReactFlow nodes
   const initialNodes = useMemo(() => {
@@ -84,15 +83,15 @@ function FlowCanvas({
         type: 'smoothstep',
         animated: node.status === 'running',
         style: {
-          stroke: node.status === 'running' ? '#60a5fa' : zinc[600],
+          stroke: node.status === 'running' ? '#60a5fa' : theme.palette.divider,
           strokeWidth: 2,
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: node.status === 'running' ? '#60a5fa' : zinc[600],
+          color: node.status === 'running' ? '#60a5fa' : theme.palette.divider,
         },
       }));
-  }, [agentNodes]);
+  }, [agentNodes, theme.palette.divider]);
 
   // Apply vertical layout
   const { nodes: layoutedNodes, edges: layoutedEdges } = useMemo(() => {
@@ -127,21 +126,18 @@ function FlowCanvas({
       minZoom={0.3}
       maxZoom={1.5}
       proOptions={{ hideAttribution: true }}
-      style={{ background: zinc[900] }}
+      style={{ background: theme.palette.background.paper }}
     >
       <Background
         variant={BackgroundVariant.Dots}
         gap={16}
         size={1}
-        color={zinc[800]}
+        color={theme.palette.divider}
       />
       <Controls
         style={{
-          button: {
-            backgroundColor: zinc[800],
-            border: `1px solid ${zinc[700]}`,
-            color: zinc[300],
-          },
+          backgroundColor: theme.palette.background.paper,
+          border: `1px solid ${theme.palette.divider}`,
         }}
       />
     </ReactFlow>
@@ -150,6 +146,7 @@ function FlowCanvas({
 
 export function AgentFlowPanel({ agentNodes, currentAgentId, onClose }: AgentFlowPanelProps) {
   const isEmpty = agentNodes.length === 0;
+  const theme = useTheme();
 
   return (
     <Box
@@ -157,8 +154,8 @@ export function AgentFlowPanel({ agentNodes, currentAgentId, onClose }: AgentFlo
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: zinc[900],
-        borderLeft: `1px solid ${zinc[800]}`,
+        backgroundColor: theme.palette.background.paper,
+        borderLeft: `1px solid ${theme.palette.divider}`,
       }}
     >
       {/* Header */}
@@ -169,15 +166,15 @@ export function AgentFlowPanel({ agentNodes, currentAgentId, onClose }: AgentFlo
           gap: 1,
           px: 1.5,
           py: 1,
-          borderBottom: `1px solid ${zinc[800]}`,
+          borderBottom: `1px solid ${theme.palette.divider}`,
         }}
       >
-        <TreeIcon sx={{ fontSize: 18, color: zinc[400] }} />
+        <TreeIcon sx={{ fontSize: 18, color: theme.palette.text.secondary }} />
         <Typography
           sx={{
             fontSize: '0.85rem',
             fontWeight: 600,
-            color: zinc[300],
+            color: theme.palette.text.secondary,
             flex: 1,
           }}
         >
@@ -188,8 +185,8 @@ export function AgentFlowPanel({ agentNodes, currentAgentId, onClose }: AgentFlo
             size="small"
             onClick={onClose}
             sx={{
-              color: zinc[500],
-              '&:hover': { color: zinc[300], backgroundColor: zinc[800] },
+              color: theme.palette.text.secondary,
+              '&:hover': { color: theme.palette.text.primary, backgroundColor: theme.palette.action.hover },
             }}
           >
             <CloseIcon sx={{ fontSize: 18 }} />
@@ -210,11 +207,11 @@ export function AgentFlowPanel({ agentNodes, currentAgentId, onClose }: AgentFlo
               gap: 1,
             }}
           >
-            <TreeIcon sx={{ fontSize: 48, color: zinc[700] }} />
-            <Typography sx={{ color: zinc[600], fontSize: '0.85rem' }}>
+            <TreeIcon sx={{ fontSize: 48, color: theme.palette.action.disabled }} />
+            <Typography sx={{ color: theme.palette.text.disabled, fontSize: '0.85rem' }}>
               Agent flow will appear here
             </Typography>
-            <Typography sx={{ color: zinc[700], fontSize: '0.75rem' }}>
+            <Typography sx={{ color: theme.palette.action.disabled, fontSize: '0.75rem' }}>
               when agents invoke sub-agents
             </Typography>
           </Box>
