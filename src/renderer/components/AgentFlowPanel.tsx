@@ -40,40 +40,68 @@ function getTreeLayout(
 ): Node[] {
   if (nodes.length === 0) return [];
 
-  // Build parent-child map
+  // Build parent-child map, avoiding cycles
+  const nodeIds = new Set(agentNodes.map((n) => n.id));
   const childrenMap = new Map<string | null, string[]>();
+
   agentNodes.forEach((node) => {
+    // Skip if parent doesn't exist (orphaned) or would create a cycle
     const parentId = node.parentId;
-    if (!childrenMap.has(parentId)) {
-      childrenMap.set(parentId, []);
+    if (parentId !== null && !nodeIds.has(parentId)) {
+      // Orphan node - treat as root
+      if (!childrenMap.has(null)) {
+        childrenMap.set(null, []);
+      }
+      childrenMap.get(null)!.push(node.id);
+    } else {
+      if (!childrenMap.has(parentId)) {
+        childrenMap.set(parentId, []);
+      }
+      childrenMap.get(parentId)!.push(node.id);
     }
-    childrenMap.get(parentId)!.push(node.id);
   });
 
-  // Calculate subtree widths for proper spacing
+  // Calculate subtree widths for proper spacing with cycle detection
   const subtreeWidths = new Map<string, number>();
 
-  function calculateSubtreeWidth(nodeId: string): number {
+  function calculateSubtreeWidth(nodeId: string, visited: Set<string>): number {
+    // Cycle detection
+    if (visited.has(nodeId)) {
+      return nodeWidth;
+    }
+    // Already calculated
+    if (subtreeWidths.has(nodeId)) {
+      return subtreeWidths.get(nodeId)!;
+    }
+
+    visited.add(nodeId);
     const children = childrenMap.get(nodeId) || [];
+
     if (children.length === 0) {
       subtreeWidths.set(nodeId, nodeWidth);
       return nodeWidth;
     }
+
     const totalWidth = children.reduce((sum, childId) => {
-      return sum + calculateSubtreeWidth(childId) + horizontalSpacing;
+      return sum + calculateSubtreeWidth(childId, visited) + horizontalSpacing;
     }, -horizontalSpacing);
-    subtreeWidths.set(nodeId, Math.max(nodeWidth, totalWidth));
-    return subtreeWidths.get(nodeId)!;
+
+    const width = Math.max(nodeWidth, totalWidth);
+    subtreeWidths.set(nodeId, width);
+    return width;
   }
 
   // Find root nodes and calculate their widths
   const rootIds = childrenMap.get(null) || [];
-  rootIds.forEach((rootId) => calculateSubtreeWidth(rootId));
+  rootIds.forEach((rootId) => calculateSubtreeWidth(rootId, new Set()));
 
-  // Position nodes
+  // Position nodes with cycle detection
   const positions = new Map<string, { x: number; y: number }>();
 
-  function positionNode(nodeId: string, x: number, y: number): void {
+  function positionNode(nodeId: string, x: number, y: number, visited: Set<string>): void {
+    if (visited.has(nodeId)) return;
+    visited.add(nodeId);
+
     positions.set(nodeId, { x, y });
 
     const children = childrenMap.get(nodeId) || [];
@@ -92,7 +120,7 @@ function getTreeLayout(
 
     children.forEach((childId, index) => {
       const childWidth = subtreeWidths.get(childId) || nodeWidth;
-      positionNode(childId, childX, childY);
+      positionNode(childId, childX, childY, visited);
       if (index < children.length - 1) {
         const nextChildWidth = subtreeWidths.get(children[index + 1]) || nodeWidth;
         childX += childWidth / 2 + horizontalSpacing + nextChildWidth / 2;
@@ -104,7 +132,7 @@ function getTreeLayout(
   let rootX = 0;
   rootIds.forEach((rootId) => {
     const rootWidth = subtreeWidths.get(rootId) || nodeWidth;
-    positionNode(rootId, rootX + rootWidth / 2, 0);
+    positionNode(rootId, rootX + rootWidth / 2, 0, new Set());
     rootX += rootWidth + horizontalSpacing;
   });
 

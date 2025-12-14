@@ -64,16 +64,30 @@ export function useAgentFlow(): UseAgentFlowReturn {
     prompt: string;
     is_new_session: boolean;
   }) => {
-    const newNode: AgentNodeData = {
-      id: data.session_id,
-      agentName: data.agent_name,
-      parentId: currentAgentId,
-      status: 'running',
-      prompt: data.prompt,
-      startTime: new Date(),
-    };
+    setAgentNodes((prev) => {
+      // Check if this session already exists
+      const existingNode = prev.find((n) => n.id === data.session_id);
 
-    setAgentNodes((prev) => [...prev, newNode]);
+      if (existingNode) {
+        // Session exists - just reactivate it
+        return prev.map((node) =>
+          node.id === data.session_id
+            ? { ...node, status: 'running', startTime: new Date(), endTime: undefined }
+            : node
+        );
+      }
+
+      // New session - add new node
+      const newNode: AgentNodeData = {
+        id: data.session_id,
+        agentName: data.agent_name,
+        parentId: currentAgentId,
+        status: 'running',
+        prompt: data.prompt,
+        startTime: new Date(),
+      };
+      return [...prev, newNode];
+    });
 
     if (currentAgentId) {
       agentStackRef.current.push(currentAgentId);
