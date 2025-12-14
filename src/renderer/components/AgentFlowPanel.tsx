@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useCallback } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -10,6 +10,7 @@ import ReactFlow, {
   ReactFlowProvider,
   BackgroundVariant,
   MarkerType,
+  NodeMouseHandler,
 } from 'reactflow';
 import { Box, Typography, IconButton, Tooltip, useTheme } from '@mui/material';
 import { Close as CloseIcon, AccountTree as TreeIcon } from '@mui/icons-material';
@@ -22,6 +23,8 @@ interface AgentFlowPanelProps {
   agentNodes: AgentNodeData[];
   currentAgentId: string | null;
   onClose: () => void;
+  onNodeClick?: (nodeId: string) => void;
+  selectedNodeId?: string | null;
 }
 
 const nodeTypes = { agentNode: AgentFlowNode };
@@ -54,23 +57,27 @@ function getVerticalLayout(
 function FlowCanvas({
   agentNodes,
   currentAgentId,
+  onNodeClick,
+  selectedNodeId,
 }: {
   agentNodes: AgentNodeData[];
   currentAgentId: string | null;
+  onNodeClick?: (nodeId: string) => void;
+  selectedNodeId?: string | null;
 }) {
   const { fitView } = useReactFlow();
   const theme = useTheme();
 
   // Convert AgentNodeData to ReactFlow nodes
   const initialNodes = useMemo(() => {
-    return agentNodes.map((node): Node<AgentNodeData> => ({
+    return agentNodes.map((node): Node<AgentNodeData & { isFiltered?: boolean }> => ({
       id: node.id,
       type: 'agentNode',
-      data: node,
+      data: { ...node, isFiltered: node.id === selectedNodeId },
       position: { x: 0, y: 0 },
       selected: node.id === currentAgentId,
     }));
-  }, [agentNodes, currentAgentId]);
+  }, [agentNodes, currentAgentId, selectedNodeId]);
 
   // Create edges from parent-child relationships
   const initialEdges = useMemo(() => {
@@ -114,19 +121,26 @@ function FlowCanvas({
     }
   }, [layoutedNodes, layoutedEdges, setNodes, setEdges, fitView]);
 
+  const handleNodeClick: NodeMouseHandler = useCallback((_, node) => {
+    if (onNodeClick) {
+      onNodeClick(node.id);
+    }
+  }, [onNodeClick]);
+
   return (
     <ReactFlow
       nodes={nodes}
       edges={edges}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
+      onNodeClick={handleNodeClick}
       nodeTypes={nodeTypes}
       fitView
       fitViewOptions={{ padding: 0.3 }}
       minZoom={0.3}
       maxZoom={1.5}
       proOptions={{ hideAttribution: true }}
-      style={{ background: theme.palette.background.paper }}
+      style={{ background: theme.palette.background.paper, cursor: onNodeClick ? 'pointer' : 'default' }}
     >
       <Background
         variant={BackgroundVariant.Dots}
@@ -144,7 +158,7 @@ function FlowCanvas({
   );
 }
 
-export function AgentFlowPanel({ agentNodes, currentAgentId, onClose }: AgentFlowPanelProps) {
+export function AgentFlowPanel({ agentNodes, currentAgentId, onClose, onNodeClick, selectedNodeId }: AgentFlowPanelProps) {
   const isEmpty = agentNodes.length === 0;
   const theme = useTheme();
 
@@ -217,7 +231,12 @@ export function AgentFlowPanel({ agentNodes, currentAgentId, onClose }: AgentFlo
           </Box>
         ) : (
           <ReactFlowProvider>
-            <FlowCanvas agentNodes={agentNodes} currentAgentId={currentAgentId} />
+            <FlowCanvas
+              agentNodes={agentNodes}
+              currentAgentId={currentAgentId}
+              onNodeClick={onNodeClick}
+              selectedNodeId={selectedNodeId}
+            />
           </ReactFlowProvider>
         )}
       </Box>

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import type { AgentNodeData } from '../types';
 
 function generateId(): string {
@@ -8,6 +8,9 @@ function generateId(): string {
 export interface UseAgentFlowReturn {
   agentNodes: AgentNodeData[];
   currentAgentId: string | null;
+  currentAgentName: string | null;
+  rootAgentId: string | null;
+  hasActiveConversation: boolean;
   flowPanelOpen: boolean;
   handleSubAgentInvocation: (data: {
     agent_name: string;
@@ -21,6 +24,7 @@ export interface UseAgentFlowReturn {
     response: string;
   }) => void;
   startNewConversation: (agentName: string, prompt: string) => void;
+  continueConversation: () => void;
   markAgentError: () => void;
   markAllRunningAsError: () => void;
   markAllRunningAsCompleted: () => void;
@@ -33,6 +37,26 @@ export function useAgentFlow(): UseAgentFlowReturn {
   const [currentAgentId, setCurrentAgentId] = useState<string | null>(null);
   const [flowPanelOpen, setFlowPanelOpen] = useState(true);
   const agentStackRef = useRef<string[]>([]);
+
+  const currentAgentName = useMemo(() => {
+    if (!currentAgentId) return null;
+    const node = agentNodes.find((n) => n.id === currentAgentId);
+    return node?.agentName || null;
+  }, [agentNodes, currentAgentId]);
+
+  // Find the root agent (the one with no parent)
+  const rootAgentId = useMemo(() => {
+    const rootNode = agentNodes.find((n) => n.parentId === null);
+    return rootNode?.id || null;
+  }, [agentNodes]);
+
+  // Check if we have an active conversation (agents exist and root is completed, not error)
+  const hasActiveConversation = useMemo(() => {
+    if (agentNodes.length === 0) return false;
+    const rootNode = agentNodes.find((n) => n.parentId === null);
+    // Active means we have a conversation that completed successfully (can continue)
+    return rootNode?.status === 'completed';
+  }, [agentNodes]);
 
   const handleSubAgentInvocation = useCallback((data: {
     agent_name: string;
@@ -92,6 +116,24 @@ export function useAgentFlow(): UseAgentFlowReturn {
     setCurrentAgentId(rootId);
   }, []);
 
+  // Continue an existing conversation - reactivate the root agent
+  const continueConversation = useCallback(() => {
+    // Find the root agent and mark it as running again
+    setAgentNodes((prev) =>
+      prev.map((node) =>
+        node.parentId === null
+          ? { ...node, status: 'running', startTime: new Date(), endTime: undefined }
+          : node
+      )
+    );
+    // Set current agent to root
+    const rootNode = agentNodes.find((n) => n.parentId === null);
+    if (rootNode) {
+      setCurrentAgentId(rootNode.id);
+      agentStackRef.current = [];
+    }
+  }, [agentNodes]);
+
   const markAgentError = useCallback(() => {
     if (currentAgentId) {
       setAgentNodes((prev) =>
@@ -135,10 +177,14 @@ export function useAgentFlow(): UseAgentFlowReturn {
   return {
     agentNodes,
     currentAgentId,
+    currentAgentName,
+    rootAgentId,
+    hasActiveConversation,
     flowPanelOpen,
     handleSubAgentInvocation,
     handleSubAgentResponse,
     startNewConversation,
+    continueConversation,
     markAgentError,
     markAllRunningAsError,
     markAllRunningAsCompleted,

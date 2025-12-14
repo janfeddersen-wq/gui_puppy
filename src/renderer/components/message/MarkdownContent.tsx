@@ -1,6 +1,7 @@
 import { Box, useTheme } from '@mui/material';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { StreamingIndicator } from './StreamingIndicator';
 
 interface MarkdownContentProps {
   content: string;
@@ -85,29 +86,7 @@ export function MarkdownContent({ content, textColor, isStreaming }: MarkdownCon
       <ReactMarkdown remarkPlugins={[remarkGfm]}>
         {content}
       </ReactMarkdown>
-      {isStreaming && <StreamingCursor />}
+      {isStreaming && <StreamingIndicator variant="wave" color={theme.palette.primary.main} />}
     </Box>
-  );
-}
-
-function StreamingCursor() {
-  const theme = useTheme();
-
-  return (
-    <Box
-      component="span"
-      sx={{
-        display: 'inline-block',
-        width: 8,
-        height: 16,
-        backgroundColor: theme.palette.text.secondary,
-        ml: 0.5,
-        animation: 'blink 1s infinite',
-        '@keyframes blink': {
-          '0%, 50%': { opacity: 1 },
-          '51%, 100%': { opacity: 0 },
-        },
-      }}
-    />
   );
 }

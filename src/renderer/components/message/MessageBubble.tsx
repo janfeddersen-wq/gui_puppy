@@ -1,4 +1,4 @@
-import { Box, Paper, Typography, useTheme } from '@mui/material';
+import { Box, Chip, Paper, Typography, useTheme } from '@mui/material';
 import {
   Person as PersonIcon,
   SmartToy as BotIcon,
@@ -11,10 +11,12 @@ import {
   FolderOpen as FolderIcon,
   Search as SearchIcon,
   Edit as EditIcon,
+  SmartToy as AgentIcon,
 } from '@mui/icons-material';
 import type { Message } from '../../types';
 import { CompactToolOutput } from './CompactToolOutput';
 import { MarkdownContent } from './MarkdownContent';
+import { StreamingIndicator } from './StreamingIndicator';
 
 interface MessageBubbleProps {
   message: Message;
@@ -150,12 +152,33 @@ function useMessageConfig(type: Message['type']): MessageConfig {
   }
 }
 
+function AgentBadge({ agentName }: { agentName: string }) {
+  return (
+    <Chip
+      icon={<AgentIcon sx={{ fontSize: 12 }} />}
+      label={agentName}
+      size="small"
+      sx={{
+        height: 20,
+        fontSize: '0.65rem',
+        fontWeight: 600,
+        backgroundColor: '#60a5fa20',
+        color: '#60a5fa',
+        border: '1px solid #60a5fa40',
+        '& .MuiChip-icon': { color: '#60a5fa', marginLeft: 0.5 },
+        '& .MuiChip-label': { px: 0.75 },
+      }}
+    />
+  );
+}
+
 export function MessageBubble({ message }: MessageBubbleProps) {
   const theme = useTheme();
   const config = useMessageConfig(message.type);
   const Icon = config.icon;
   const isCenter = config.align === 'center';
   const useMarkdown = shouldRenderMarkdown(message.type);
+  const showAgentBadge = message.agentName && message.type !== 'user';
 
   if (config.compact) {
     return <CompactToolOutput message={message} iconColor={config.iconColor} textColor={config.textColor} />;
@@ -179,7 +202,25 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           borderRadius: 2,
         }}
       >
-        <MessageLabel icon={Icon} label={message.label} iconColor={config.iconColor} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: message.label || showAgentBadge ? 0.5 : 0 }}>
+          {showAgentBadge && <AgentBadge agentName={message.agentName!} />}
+          {message.label && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Icon sx={{ fontSize: 14, color: config.iconColor }} />
+              <Typography
+                variant="caption"
+                sx={{
+                  color: config.iconColor,
+                  textTransform: 'uppercase',
+                  fontWeight: 600,
+                  letterSpacing: 0.5,
+                }}
+              >
+                {message.label}
+              </Typography>
+            </Box>
+          )}
+        </Box>
         {useMarkdown ? (
           <MarkdownContent
             content={message.content}
@@ -198,32 +239,6 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   );
 }
 
-interface MessageLabelProps {
-  icon: typeof ToolIcon;
-  label?: string;
-  iconColor: string;
-}
-
-function MessageLabel({ icon: Icon, label, iconColor }: MessageLabelProps) {
-  if (!label) return null;
-
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-      <Icon sx={{ fontSize: 14, color: iconColor }} />
-      <Typography
-        variant="caption"
-        sx={{
-          color: iconColor,
-          textTransform: 'uppercase',
-          fontWeight: 600,
-          letterSpacing: 0.5,
-        }}
-      >
-        {label}
-      </Typography>
-    </Box>
-  );
-}
 
 interface PlainTextContentProps {
   content: string;
@@ -244,23 +259,7 @@ function PlainTextContent({ content, textColor, isStreaming }: PlainTextContentP
       }}
     >
       {content}
-      {isStreaming && (
-        <Box
-          component="span"
-          sx={{
-            display: 'inline-block',
-            width: 8,
-            height: 16,
-            backgroundColor: theme.palette.text.secondary,
-            ml: 0.5,
-            animation: 'blink 1s infinite',
-            '@keyframes blink': {
-              '0%, 50%': { opacity: 1 },
-              '51%, 100%': { opacity: 0 },
-            },
-          }}
-        />
-      )}
+      {isStreaming && <StreamingIndicator variant="wave" color={theme.palette.primary.main} />}
     </Typography>
   );
 }

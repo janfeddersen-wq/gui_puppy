@@ -11,6 +11,7 @@ import type {
   OAuthUrl,
   ApiKeyResult,
   ModelPinResult,
+  AgentNodeData,
 } from './types';
 
 export function App() {
@@ -41,21 +42,35 @@ export function App() {
     handleStreamChunk,
     finalizeStreaming,
     startStreaming,
+    setCurrentAgent,
   } = useMessages();
 
   const {
     agentNodes,
     currentAgentId,
+    currentAgentName,
+    hasActiveConversation,
     flowPanelOpen,
     handleSubAgentInvocation,
     handleSubAgentResponse,
     startNewConversation,
+    continueConversation,
     markAgentError,
     markAllRunningAsError,
     markAllRunningAsCompleted,
     toggleFlowPanel,
     closeFlowPanel,
   } = useAgentFlow();
+
+  // Agent filter state for message list
+  const [agentFilter, setAgentFilter] = useState<string | null>(null);
+
+  // Sync current agent to messages hook
+  useEffect(() => {
+    if (currentAgentId && currentAgentName) {
+      setCurrentAgent(currentAgentId, currentAgentName);
+    }
+  }, [currentAgentId, currentAgentName, setCurrentAgent]);
 
   // Message handler
   const handleMessage = useCallback((data: Parameters<typeof handleSidecarMessage>[0]) => {
@@ -193,7 +208,13 @@ export function App() {
       : text;
     addMessage('user', messageText);
     setIsProcessing(true);
-    startNewConversation(config?.current.agent || 'code-puppy', text);
+
+    // Continue existing conversation or start a new one
+    if (hasActiveConversation) {
+      continueConversation();
+    } else {
+      startNewConversation(config?.current.agent || 'code-puppy', text);
+    }
     startStreaming();
 
     if (pendingPromptId) {
@@ -208,7 +229,7 @@ export function App() {
       }));
       sendPrompt(text, imageData);
     }
-  }, [addMessage, pendingPromptId, sendInputResponse, sendPrompt, config, startNewConversation, startStreaming]);
+  }, [addMessage, pendingPromptId, sendInputResponse, sendPrompt, config, startNewConversation, continueConversation, hasActiveConversation, startStreaming]);
 
   // Cancel handler
   const handleCancel = useCallback(() => {
@@ -287,7 +308,12 @@ export function App() {
             minWidth: 0,
           }}
         >
-          <MessageList messages={messages} />
+          <MessageList
+            messages={messages}
+            agentFilter={agentFilter}
+            agentNodes={agentNodes}
+            onClearFilter={() => setAgentFilter(null)}
+          />
           <InputArea
             onSend={handleSend}
             onCancel={handleCancel}
@@ -308,6 +334,8 @@ export function App() {
               agentNodes={agentNodes}
               currentAgentId={currentAgentId}
               onClose={closeFlowPanel}
+              onNodeClick={(nodeId) => setAgentFilter(nodeId)}
+              selectedNodeId={agentFilter}
             />
           </ResizablePanel>
         )}

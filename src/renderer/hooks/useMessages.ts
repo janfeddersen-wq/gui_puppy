@@ -122,6 +122,11 @@ function parseStructuredData(msgType: string, data: SidecarMessage): { content: 
   return { content, structuredData };
 }
 
+export interface AgentContext {
+  agentId: string;
+  agentName: string;
+}
+
 export interface UseMessagesReturn {
   messages: Message[];
   streamingMessageId: string | null;
@@ -131,6 +136,8 @@ export interface UseMessagesReturn {
   handleStreamChunk: (content: string) => void;
   finalizeStreaming: () => void;
   startStreaming: () => string;
+  setCurrentAgent: (agentId: string, agentName: string) => void;
+  currentAgent: AgentContext | null;
 }
 
 export interface SubAgentData {
@@ -156,15 +163,29 @@ export function useMessages(): UseMessagesReturn {
     },
   ]);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  const [currentAgent, setCurrentAgentState] = useState<AgentContext | null>(null);
+
+  const setCurrentAgent = useCallback((agentId: string, agentName: string) => {
+    setCurrentAgentState({ agentId, agentName });
+  }, []);
 
   const addMessage = useCallback((type: MessageType, content: string, label?: string, data?: StructuredData) => {
     const id = generateId();
     setMessages((prev) => [
       ...prev,
-      { id, type, content, label, timestamp: new Date(), data },
+      {
+        id,
+        type,
+        content,
+        label,
+        timestamp: new Date(),
+        data,
+        agentId: currentAgent?.agentId,
+        agentName: currentAgent?.agentName,
+      },
     ]);
     return id;
-  }, []);
+  }, [currentAgent]);
 
   const updateMessage = useCallback((id: string, content: string) => {
     setMessages((prev) =>
@@ -187,11 +208,19 @@ export function useMessages(): UseMessagesReturn {
     const id = generateId();
     setMessages((prev) => [
       ...prev,
-      { id, type: 'assistant', content: '', timestamp: new Date(), isStreaming: true },
+      {
+        id,
+        type: 'assistant',
+        content: '',
+        timestamp: new Date(),
+        isStreaming: true,
+        agentId: currentAgent?.agentId,
+        agentName: currentAgent?.agentName,
+      },
     ]);
     setStreamingMessageId(id);
     return id;
-  }, []);
+  }, [currentAgent]);
 
   const handleStreamChunk = useCallback((content: string) => {
     if (streamingMessageId) {
@@ -200,11 +229,19 @@ export function useMessages(): UseMessagesReturn {
       const id = generateId();
       setMessages((prev) => [
         ...prev,
-        { id, type: 'assistant', content, timestamp: new Date(), isStreaming: true },
+        {
+          id,
+          type: 'assistant',
+          content,
+          timestamp: new Date(),
+          isStreaming: true,
+          agentId: currentAgent?.agentId,
+          agentName: currentAgent?.agentName,
+        },
       ]);
       setStreamingMessageId(id);
     }
-  }, [streamingMessageId, updateMessage]);
+  }, [streamingMessageId, updateMessage, currentAgent]);
 
   const handleSidecarMessage = useCallback((
     data: SidecarMessage,
@@ -255,5 +292,7 @@ export function useMessages(): UseMessagesReturn {
     handleStreamChunk,
     finalizeStreaming,
     startStreaming,
+    setCurrentAgent,
+    currentAgent,
   };
 }

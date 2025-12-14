@@ -78,6 +78,9 @@ export interface Message {
   label?: string;
   timestamp: Date;
   isStreaming?: boolean;
+  // Agent tracking for filtering
+  agentId?: string;
+  agentName?: string;
   // Structured data for tool outputs
   data?: FileContentData | FileListingData | GrepResultData | DiffData | ShellOutputData;
 }
